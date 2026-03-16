@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Interactive Learning Lab</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@300;400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ── 변수 ── */
+:root {
+  --bg:        #f5f2ed;
+  --surface:   #ffffff;
+  --ink:       #1a1612;
+  --ink-soft:  #6b6058;
+  --ink-faint: #b8afa4;
+  --rule:      #e6e0d8;
+
+  /* 과목 테마 */
+  --science:   #1a7a4a;
+  --science-bg:#e8f5ee;
+  --social:    #1a5a9a;
+  --social-bg: #e8eef8;
+  --english:   #8a3a10;
+  --english-bg:#f8ede8;
+  --music:     #6a1a7a;
+  --music-bg:  #f0e8f8;
+  --math:      #7a6a10;
+  --math-bg:   #f8f4e8;
+  --art:       #9a1a3a;
+  --art-bg:    #f8e8ee;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: 'Noto Sans KR', sans-serif;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+/* ── 배경 패턴 ── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: radial-gradient(circle, #c8bfb0 1px, transparent 1px);
+  background-size: 28px 28px;
+  opacity: 0.35;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.page { position: relative; z-index: 1; }
+
+/* ── 히어로 ── */
+.hero {
+  padding: 72px 40px 56px;
+  max-width: 1100px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: end;
+  gap: 32px;
+}
+
+.hero-eyebrow {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 3px;
+  color: var(--ink-faint);
+  text-transform: uppercase;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.hero-eyebrow::before {
+  content: '';
+  display: inline-block;
+  width: 24px;
+  height: 1px;
+  background: var(--ink-faint);
+}
+
+.hero-title {
+  font-family: 'Syne', sans-serif;
+  font-size: clamp(38px, 6vw, 72px);
+  font-weight: 800;
+  line-height: 1.0;
+  letter-spacing: -2px;
+  color: var(--ink);
+  margin-bottom: 20px;
+}
+
+.hero-title .accent {
+  color: transparent;
+  -webkit-text-stroke: 2px var(--ink);
+}
+
+.hero-desc {
+  font-size: 15px;
+  color: var(--ink-soft);
+  max-width: 480px;
+  font-weight: 300;
+  line-height: 1.7;
+}
+
+.hero-meta {
+  text-align: right;
+}
+
+.hero-count {
+  font-family: 'Syne', sans-serif;
+  font-size: 56px;
+  font-weight: 800;
+  color: var(--ink);
+  line-height: 1;
+  letter-spacing: -2px;
+}
+
+.hero-count-label {
+  font-size: 12px;
+  color: var(--ink-faint);
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: 1px;
+}
+
+/* ── 구분선 ── */
+.divider {
+  border: none;
+  border-top: 1px solid var(--rule);
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+/* ── 필터 바 ── */
+.filter-bar {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px 40px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.filter-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--ink-faint);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-right: 6px;
+}
+
+.filter-btn {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  padding: 5px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--rule);
+  background: transparent;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: all 0.18s;
+  letter-spacing: 0.5px;
+}
+
+.filter-btn:hover,
+.filter-btn.active {
+  background: var(--ink);
+  color: var(--bg);
+  border-color: var(--ink);
+}
+
+/* ── 카드 그리드 ── */
+.grid {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 8px 40px 80px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 20px;
+}
+
+/* ── 카드 ── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 16px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+  position: relative;
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 48px rgba(26,22,18,0.10);
+  border-color: var(--rule);
+}
+
+/* 카드 상단 비주얼 */
+.card-visual {
+  height: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+/* 과목별 배경 */
+.card[data-subject="science"] .card-visual { background: var(--science-bg); }
+.card[data-subject="social"]  .card-visual { background: var(--social-bg); }
+.card[data-subject="english"] .card-visual { background: var(--english-bg); }
+.card[data-subject="music"]   .card-visual { background: var(--music-bg); }
+.card[data-subject="math"]    .card-visual { background: var(--math-bg); }
+.card[data-subject="art"]     .card-visual { background: var(--art-bg); }
+
+/* 카드 비주얼 아이콘 */
+.card-icon {
+  font-size: 52px;
+  line-height: 1;
+  transition: transform 0.3s ease;
+  position: relative;
+  z-index: 1;
+}
+
+.card:hover .card-icon { transform: scale(1.12) rotate(-3deg); }
+
+/* 배경 장식 원 */
+.card-visual::before,
+.card-visual::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  opacity: 0.15;
+}
+
+.card-visual::before {
+  width: 120px; height: 120px;
+  bottom: -40px; right: -20px;
+}
+
+.card-visual::after {
+  width: 60px; height: 60px;
+  top: 10px; left: 20px;
+}
+
+.card[data-subject="science"] .card-visual::before,
+.card[data-subject="science"] .card-visual::after { background: var(--science); }
+.card[data-subject="social"]  .card-visual::before,
+.card[data-subject="social"]  .card-visual::after { background: var(--social); }
+.card[data-subject="english"] .card-visual::before,
+.card[data-subject="english"] .card-visual::after { background: var(--english); }
+.card[data-subject="music"]   .card-visual::before,
+.card[data-subject="music"]   .card-visual::after { background: var(--music); }
+.card[data-subject="math"]    .card-visual::before,
+.card[data-subject="math"]    .card-visual::after { background: var(--math); }
+.card[data-subject="art"]     .card-visual::before,
+.card[data-subject="art"]     .card-visual::after { background: var(--art); }
+
+/* 카드 태그 (과목) */
+.card-tag {
+  position: absolute;
+  top: 12px;
+  left: 14px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: 20px;
+  font-weight: 500;
+  z-index: 2;
+}
+
+.card[data-subject="science"] .card-tag { background: var(--science-bg); color: var(--science); border: 1px solid var(--science); }
+.card[data-subject="social"]  .card-tag { background: var(--social-bg);  color: var(--social);  border: 1px solid var(--social); }
+.card[data-subject="english"] .card-tag { background: var(--english-bg); color: var(--english); border: 1px solid var(--english); }
+.card[data-subject="music"]   .card-tag { background: var(--music-bg);   color: var(--music);   border: 1px solid var(--music); }
+.card[data-subject="math"]    .card-tag { background: var(--math-bg);    color: var(--math);    border: 1px solid var(--math); }
+.card[data-subject="art"]     .card-tag { background: var(--art-bg);     color: var(--art);     border: 1px solid var(--art); }
+
+/* 새 뱃지 */
+.badge-new {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 1px;
+  padding: 3px 8px;
+  border-radius: 20px;
+  background: var(--ink);
+  color: var(--bg);
+  z-index: 2;
+}
+
+/* 카드 본문 */
+.card-body {
+  padding: 20px 22px 22px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.card-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 8px;
+  letter-spacing: -0.3px;
+  line-height: 1.3;
+}
+
+.card-desc {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  font-weight: 300;
+  line-height: 1.65;
+  flex: 1;
+  margin-bottom: 16px;
+}
+
+/* 카드 하단 */
+.card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 14px;
+  border-top: 1px solid var(--rule);
+}
+
+.card-features {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.feature-chip {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--ink-soft);
+  border: 1px solid var(--rule);
+  letter-spacing: 0.3px;
+}
+
+.card-arrow {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--rule);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: var(--ink-soft);
+  transition: all 0.18s;
+  flex-shrink: 0;
+}
+
+.card:hover .card-arrow {
+  background: var(--ink);
+  color: var(--bg);
+  border-color: var(--ink);
+  transform: translateX(3px);
+}
+
+/* ── 준비중 카드 ── */
+.card.coming-soon {
+  opacity: 0.55;
+  cursor: default;
+  pointer-events: none;
+}
+
+.card.coming-soon .badge-new {
+  background: var(--ink-faint);
+}
+
+/* ── 섹션 헤더 ── */
+.section-header {
+  max-width: 1100px;
+  margin: 40px auto 0;
+  padding: 0 40px 12px;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.section-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+.section-count {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--ink-faint);
+}
+
+/* ── 푸터 ── */
+footer {
+  border-top: 1px solid var(--rule);
+  padding: 28px 40px;
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.footer-left {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--ink-faint);
+}
+
+.footer-right {
+  font-size: 12px;
+  color: var(--ink-faint);
+  font-weight: 300;
+}
+
+/* ── 애니메이션 ── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.hero         { animation: fadeUp 0.5s ease both; }
+.filter-bar   { animation: fadeUp 0.5s 0.1s ease both; }
+.section-header { animation: fadeUp 0.5s 0.15s ease both; }
+
+.card {
+  animation: fadeUp 0.4s ease both;
+}
+.card:nth-child(1)  { animation-delay: 0.15s; }
+.card:nth-child(2)  { animation-delay: 0.20s; }
+.card:nth-child(3)  { animation-delay: 0.25s; }
+.card:nth-child(4)  { animation-delay: 0.30s; }
+.card:nth-child(5)  { animation-delay: 0.35s; }
+.card:nth-child(6)  { animation-delay: 0.40s; }
+.card:nth-child(7)  { animation-delay: 0.45s; }
+.card:nth-child(8)  { animation-delay: 0.50s; }
+.card:nth-child(9)  { animation-delay: 0.55s; }
+.card:nth-child(10) { animation-delay: 0.60s; }
+
+/* ── 반응형 ── */
+@media (max-width: 720px) {
+  .hero { grid-template-columns: 1fr; padding: 48px 20px 40px; }
+  .hero-meta { display: none; }
+  .filter-bar { padding: 16px 20px; }
+  .grid { padding: 8px 20px 60px; grid-template-columns: 1fr; }
+  .section-header { padding: 0 20px 12px; }
+  footer { padding: 20px; }
+}
+
+/* ── 검색 없을 때 ── */
+.no-result {
+  display: none;
+  grid-column: 1/-1;
+  text-align: center;
+  padding: 60px 20px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  color: var(--ink-faint);
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+<!-- 히어로 -->
+<section class="hero">
+  <div>
+    <div class="hero-eyebrow">Interactive Learning Lab</div>
+    <h1 class="hero-title">
+      교과별<br><span class="accent">시뮬레이션</span><br>모음
+    </h1>
+    <p class="hero-desc">
+      HTML + JavaScript로 만든 인터랙티브 수업 도구 모음입니다.
+      별도 설치 없이 브라우저에서 바로 사용할 수 있습니다.
+    </p>
+  </div>
+  <div class="hero-meta">
+    <div class="hero-count" id="totalCount">10</div>
+    <div class="hero-count-label">TOOLS</div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- 필터 -->
+<div class="filter-bar">
+  <span class="filter-label">Filter</span>
+  <button class="filter-btn active" data-filter="all">전체</button>
+  <button class="filter-btn" data-filter="science">과학</button>
+  <button class="filter-btn" data-filter="social">사회</button>
+  <button class="filter-btn" data-filter="english">영어</button>
+  <button class="filter-btn" data-filter="music">음악</button>
+  <button class="filter-btn" data-filter="math">수학</button>
+  <button class="filter-btn" data-filter="art">미술</button>
+</div>
+
+<!-- 섹션 헤더 -->
+<div class="section-header">
+  <span class="section-title">All Tools</span>
+  <span class="section-count" id="visibleCount">10 items</span>
+</div>
+
+<!-- 카드 그리드 -->
+<div class="grid" id="cardGrid">
+
+  <!-- 1. 인구 피라미드 -->
+  <a class="card" data-subject="social" href="korea_population_pyramid.html">
+    <div class="card-visual">
+      <span class="card-tag">사회 · 인구</span>
+      <span class="badge-new">NEW</span>
+      <span class="card-icon">🏛️</span>
+    </div>
+    <div class="card-body">
+      <div class="card-title">대한민국 인구 피라미드</div>
+      <div class="card-desc">1950~2100년 연도 슬라이더로 한국의 인구 구조 변화를 시각화합니다. 베이비붐·저출산·초고령화 과정을 한눈에 확인할 수 있습니다.</div>
+      <div class="card-footer">
+        <div class="card-features">
+          <span class="feature-chip">슬라이더</span>
+          <span class="feature-chip">자동재생</span>
+          <span class="feature-chip">UN데이터</span>
+        </div>
+        <div class="card-arrow">→</div>
+      </div>
+    </div>
+  </a>
+
+  <!-- 2. 음파 시각화 -->
+  <a class="card" data-subject="music" href="sound_visualizer.html">
+    <div class="card-visual">
+      <span class="card-tag">음악 · 물리</span>
+      <span class="badge-new">NEW</span>
+      <span class="card-icon">🎵</span>
+    </div>
+    <div class="card-body">
+      <div class="card-title">음파 시각화 · 주파수 색상 분석</div>
+      <div class="card-desc">마이크 입력을 실시간으로 분석해 파형을 누적 표시합니다. 저음은 파랑, 고음은 빨강으로 주파수를 색으로 직관적으로 표현합니다.</div>
+      <div class="card-footer">
+        <div class="card-features">
+          <span class="feature-chip">실시간마이크</span>
+          <span class="feature-chip">스펙트럼</span>
+          <span class="feature-chip">HTTPS필요</span>
+        </div>
+        <div class="card-arrow">→</div>
+      </div>
+    </div>
+  </a>
+
+  <!-- 3. 영어 문장 분석기 -->
+  <a class="card" data-subject="english" href="english_sentence_analyzer.html">
+    <div class="card-visual">
+      <span class="card-tag">영어 · 문법</span>
+      <span class="badge-new">NEW</span>
+      <span class="card-icon">📝</span>
+    </div>
+    <div class="card-body">
+      <div class="card-title">영어 문장 성분 분석기</div>
+      <div class="card-desc">문장을 붙여넣으면 AI가 주어·동사·목적어·보어·부사어를 색상으로 태깅합니다. 1~5형식 문형 분석과 한국어 설명을 함께 제공합니다.</div>
+      <div class="card-footer">
+        <div class="card-features">
+          <span class="feature-chip">AI분석</span>
+          <span class="feature-chip">색상태깅</span>
+          <span class="feature-chip">문형표시</span>
+        </div>
+        <div class="card-arrow">→</div>
+      </div>
+    </div>
+  </a>
+
+  <!-- 4. 빛의 합성 (준비중) -->
+  <div class="card coming-soon" data-subject="science">
+    <div class="card-visual">
+      <span class="card-tag">과학 · 빛</span>
+      <span class="badge-new">준비중</span>
+      <span class="card-icon">💡</span>
+    </div>
+    <div class="card-body">
+      <div class="card-title">빛의 합성 시뮬레이터</div>
+      <div class="card-desc">RGB 빛의 가산혼합과 물감의 감산혼합을 비교합니다. 색각의 원리와 모니터·프린터의 작동 방식을 직접 조작하며 이해합니다.</div>
+      <div class="card-footer">
+        <div class="card-features">
+          <span class="feature-chip">가산혼합</span>
+          <span class="feature-chip">감산혼합</span>
+        </div>
+        <div class="card-arrow">→</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. 함수 그래프 (준비중) -->
+  <div class="card coming-soon" data-subject="math">
+    <div class="card-visual">
+      <span class="card-tag">수학 · 함수</span>
+      <span class="badge-new">준비중</span>
+      <span class="card-icon">📈</span>
+    </div>
+    <div class="card-body">
+      <div class="card-title">함수 변환 탐색기</div>
+      <div class="card-desc">슬라이더로 a, b, c 값을 조절하며 이차·삼각·지수함수의 그래프 변환을 실시간으로 확인합니다. GeoGebra 없이 브라우저에서 바로 사용 가능합니다.</div>
+      <div class="card-footer">
+        <div class="card-features">
+          <span class="feature-chip">슬라이더</span>
+          <span class="feature-chip">실시간그래프</span>
+        </div>
+        <div class="card-arrow">→</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. 확률 시뮬레이션 (준비중) -->
+  <div class="card coming-soon" data-subject="math">
+    <div class="card-visual">
+      <span class="card-tag">수학 · 확률</span>
+      <span class="badge-new">준비중</span>
+      <span class="card-icon">🎲</span>
+    </div>
+    <div class="card-body">
+      <div class="card-title">확률 수렴 시뮬레이터</div>
+      <div class="card-desc">동전 던지기·주사위 던지기를 수천 회 자동 실행하며 대수의 법칙이 수렴하는 과정을 애니메이션으로 확인합니다.</div>
+      <div class="card-footer">
+        <div class="card-features">
+          <span class="feature-chip">대수의법칙</span>
+          <span class="feature-chip">애니메이션</span>
+        </div>
+        <div class="card-arrow">→</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7. 세포 삼투압 (준비중) -->
+  <div class="card coming-soon" data-subject="science">
+    <div class="card-visual">
+      <span class="card-tag">과학 · 생물</span>
+      <span class="badge-new">준비중</span>
+      <span class="card-icon">🔬</span>
+    </div>
+    <div class="card-body">
+      <div class="card-title">세포 삼투압 시뮬레이터</div>
+      <div class="card-desc">농도 슬라이더로 세포 안팎의 용질 농도를 조절하며 삼투 현상과 세포 부피 변화를 실시간으로 관찰합니다.</div>
+      <div class="card-footer">
+        <div class="card-features">
+          <span class="feature-chip">삼투</span>
+          <span class="feature-chip">농도조절</span>
+        </div>
+        <div class="card-arrow">→</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 8. 황금비 구성 (준비중) -->
+  <div class="card coming-soon" data-subject="art">
+    <div class="card-visual">
+      <span class="card-tag">미술 · 구성</span>
+      <span class="badge-new">준비중</span>
+      <span class="card-icon">🎨</span>
+    </div>
+    <div class="card-body">
+      <div class="card-title">황금비 구성 도우미</div>
+      <div class="card-desc">캔버스 위에 황금비·삼등분 격자·피보나치 나선을 오버레이합니다. 사진 구도와 회화 구성 분석에 활용합니다.</div>
+      <div class="card-footer">
+        <div class="card-features">
+          <span class="feature-chip">황금비</span>
+          <span class="feature-chip">격자오버레이</span>
+        </div>
+        <div class="card-arrow">→</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 9. 어휘 빈도 분석 (준비중) -->
+  <div class="card coming-soon" data-subject="english">
+    <div class="card-visual">
+      <span class="card-tag">영어 · 어휘</span>
+      <span class="badge-new">준비중</span>
+      <span class="card-icon">📊</span>
+    </div>
+    <div class="card-body">
+      <div class="card-title">어휘 빈도 분석기</div>
+      <div class="card-desc">텍스트를 붙여넣으면 단어 빈도를 막대그래프와 워드클라우드로 시각화합니다. 지문의 핵심 어휘 파악과 작가 문체 분석에 활용합니다.</div>
+      <div class="card-footer">
+        <div class="card-features">
+          <span class="feature-chip">워드클라우드</span>
+          <span class="feature-chip">빈도분석</span>
+        </div>
+        <div class="card-arrow">→</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 10. 심박수 계산기 (준비중) -->
+  <div class="card coming-soon" data-subject="science">
+    <div class="card-visual">
+      <span class="card-tag">과학 · 보건</span>
+      <span class="badge-new">준비중</span>
+      <span class="card-icon">❤️</span>
+    </div>
+    <div class="card-body">
+      <div class="card-title">목표 심박수 계산기</div>
+      <div class="card-desc">나이와 운동 강도를 입력하면 목표 심박수 구간을 시각적 게이지로 표시합니다. 운동 생리학 원리와 연계한 체육·보건 수업에 활용합니다.</div>
+      <div class="card-footer">
+        <div class="card-features">
+          <span class="feature-chip">심박수구간</span>
+          <span class="feature-chip">게이지</span>
+        </div>
+        <div class="card-arrow">→</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="no-result" id="noResult">검색 결과가 없습니다.</div>
+
+</div><!-- /grid -->
+
+<!-- 푸터 -->
+<footer>
+  <div class="footer-left">Interactive Learning Lab · Made with HTML + JS + Claude AI</div>
+  <div class="footer-right">수업 활용 문의 및 추가 제작 요청 환영합니다</div>
+</footer>
+
+</div><!-- /page -->
+
+<script>
+// ── 필터 기능 ──────────────────────────────────────────────
+const filterBtns = document.querySelectorAll('.filter-btn');
+const cards = document.querySelectorAll('.card');
+const noResult = document.getElementById('noResult');
+const visibleCount = document.getElementById('visibleCount');
+
+function updateCount() {
+  const visible = [...cards].filter(c => c.style.display !== 'none').length;
+  visibleCount.textContent = visible + ' items';
+}
+
+filterBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    filterBtns.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    const filter = btn.dataset.filter;
+    let hasVisible = false;
+
+    cards.forEach(card => {
+      const subj = card.dataset.subject;
+      const show = filter === 'all' || subj === filter;
+      card.style.display = show ? '' : 'none';
+      if (show) hasVisible = true;
+    });
+
+    noResult.style.display = hasVisible ? 'none' : 'block';
+    updateCount();
+  });
+});
+
+// 초기 카운트
+updateCount();
+</script>
+</body>
+</html>

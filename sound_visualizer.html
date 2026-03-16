@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sound Wave Visualizer</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Noto+Sans+KR:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #080c14;
+    --surface: #0d1220;
+    --border: #1a2340;
+    --text: #c8d4e8;
+    --text-muted: #4a5a78;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans KR', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* 상단 헤더 */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 24px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    flex-shrink: 0;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .title-group h1 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    font-weight: 500;
+    color: #fff;
+    letter-spacing: 1px;
+  }
+
+  .title-group p {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+
+  /* 실시간 수치 */
+  .live-stats {
+    display: flex;
+    gap: 24px;
+  }
+
+  .stat {
+    text-align: center;
+  }
+
+  .stat-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 20px;
+    font-weight: 500;
+    color: #fff;
+    line-height: 1;
+    transition: color 0.15s;
+  }
+
+  .stat-label {
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-top: 3px;
+    letter-spacing: 0.5px;
+  }
+
+  /* 버튼 */
+  .controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    padding: 8px 16px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+
+  .btn:hover { background: var(--border); }
+
+  .btn.primary {
+    background: #1a3a6a;
+    border-color: #2a5aaa;
+    color: #7ab4ff;
+  }
+
+  .btn.primary:hover { background: #1e4580; }
+
+  .btn.recording {
+    background: #3a0a0a;
+    border-color: #aa2a2a;
+    color: #ff7a7a;
+    animation: pulse-red 1.2s infinite;
+  }
+
+  @keyframes pulse-red {
+    0%, 100% { border-color: #aa2a2a; }
+    50% { border-color: #ff4444; box-shadow: 0 0 8px rgba(255,68,68,0.3); }
+  }
+
+  /* 주파수-색상 범례 바 */
+  .freq-legend {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: center;
+  }
+
+  .freq-bar {
+    width: 180px;
+    height: 12px;
+    border-radius: 6px;
+    background: linear-gradient(to right,
+      #0033ff, #0066ff, #0099ff, #00ccff,
+      #00ffcc, #00ff66, #66ff00,
+      #ccff00, #ffcc00, #ff6600, #ff2200);
+    border: 1px solid var(--border);
+  }
+
+  .freq-bar-labels {
+    display: flex;
+    justify-content: space-between;
+    width: 180px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: var(--text-muted);
+  }
+
+  /* 메인 캔버스 영역 */
+  .canvas-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 16px 20px 12px;
+    gap: 12px;
+    min-height: 0;
+  }
+
+  .canvas-block {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .canvas-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .canvas-label .hint {
+    font-size: 9px;
+    letter-spacing: 0;
+    color: #2a3a58;
+    font-weight: 300;
+    text-transform: none;
+  }
+
+  canvas {
+    width: 100%;
+    flex: 1;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    display: block;
+    min-height: 0;
+  }
+
+  /* 음표 이름 오버레이 */
+  .note-overlay {
+    position: absolute;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    pointer-events: none;
+    transition: color 0.1s;
+  }
+
+  /* 하단 상태바 */
+  .statusbar {
+    padding: 8px 24px;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+
+  .status-item {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #2a3a58;
+    flex-shrink: 0;
+  }
+
+  .status-dot.active { background: #22c55e; box-shadow: 0 0 6px #22c55e; }
+  .status-dot.error  { background: #ef4444; }
+
+  /* 시작 화면 오버레이 */
+  #startOverlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(8,12,20,0.92);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    z-index: 100;
+    backdrop-filter: blur(4px);
+  }
+
+  #startOverlay h2 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 18px;
+    color: #fff;
+    text-align: center;
+  }
+
+  #startOverlay p {
+    font-size: 13px;
+    color: var(--text-muted);
+    text-align: center;
+    max-width: 320px;
+    line-height: 1.6;
+  }
+
+  .start-btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    padding: 14px 36px;
+    border-radius: 8px;
+    border: 1px solid #2a5aaa;
+    background: #1a3a6a;
+    color: #7ab4ff;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 1px;
+  }
+
+  .start-btn:hover {
+    background: #1e4580;
+    box-shadow: 0 0 20px rgba(100,160,255,0.2);
+  }
+
+  /* 색상 포인터 (현재 주파수 위치 표시) */
+  #freqPointer {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    background: transparent;
+    display: inline-block;
+    transition: all 0.1s;
+    flex-shrink: 0;
+  }
+</style>
+</head>
+<body>
+
+<!-- 시작 오버레이 -->
+<div id="startOverlay">
+  <h2>🎵 Sound Wave Visualizer</h2>
+  <p>마이크 접근 권한이 필요합니다.<br>소리를 내면 파형이 주파수에 따라 색으로 표시됩니다.</p>
+  <div id="httpsWarning" style="display:none;background:#2a1000;border:1px solid #ff6600;border-radius:10px;padding:14px 18px;max-width:320px;font-size:12px;line-height:1.7;color:#ffaa66;text-align:left;">
+    ⚠️ <strong>HTTPS 환경이 필요합니다</strong><br>
+    현재 <code id="currentProto" style="background:#1a0800;padding:1px 5px;border-radius:3px;font-family:monospace"></code> 로 열려 있어요.<br><br>
+    스마트폰에서 마이크를 쓰려면 반드시 <strong>https://</strong> 주소로 접속해야 합니다.<br><br>
+    📌 해결 방법:<br>
+    &nbsp;• GitHub Pages에 올려서 접속<br>
+    &nbsp;• Synology NAS HTTPS로 서빙<br>
+    &nbsp;• <a href="https://codepen.io/pen" target="_blank" style="color:#ffcc88">codepen.io</a>에 코드 붙여넣기
+  </div>
+  <div id="noApiWarning" style="display:none;background:#2a0a1a;border:1px solid #ff4488;border-radius:10px;padding:14px 18px;max-width:320px;font-size:12px;line-height:1.7;color:#ffaacc;text-align:left;">
+    ⚠️ <strong>이 브라우저는 마이크 API를 지원하지 않습니다.</strong><br>
+    Chrome 또는 Safari 최신 버전을 사용해주세요.
+  </div>
+  <button class="start-btn" id="startBtn">🎤 마이크 시작</button>
+  <div id="startError" style="display:none;background:#1a0808;border:1px solid #aa2222;border-radius:8px;padding:10px 16px;max-width:320px;font-size:12px;color:#ff8888;text-align:left;line-height:1.6;"></div>
+</div>
+
+<header>
+  <div class="title-group">
+    <h1>SOUND WAVE VISUALIZER</h1>
+    <p>주파수 → 색상 매핑 · 실시간 분석</p>
+  </div>
+
+  <div class="live-stats">
+    <div class="stat">
+      <div class="stat-val" id="freqVal">—</div>
+      <div class="stat-label">Hz (주파수)</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val" id="noteVal">—</div>
+      <div class="stat-label">음 이름</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val" id="dbVal">—</div>
+      <div class="stat-label">dB (크기)</div>
+    </div>
+  </div>
+
+  <div class="freq-legend">
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span id="freqPointer"></span>
+      <div class="freq-bar"></div>
+    </div>
+    <div class="freq-bar-labels">
+      <span>80Hz</span><span>저음</span><span>중음</span><span>고음</span><span>2kHz</span>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="btn" id="clearBtn">지우기</button>
+    <button class="btn primary" id="pauseBtn">일시정지</button>
+  </div>
+</header>
+
+<div class="canvas-area">
+  <!-- 스크롤 파형 -->
+  <div class="canvas-block" style="flex: 2">
+    <div class="canvas-label">
+      WAVEFORM · 스크롤 파형
+      <span class="hint">— 파형 색상 = 현재 지배 주파수 | 밝기 = 진폭</span>
+    </div>
+    <canvas id="waveCanvas"></canvas>
+  </div>
+
+  <!-- 스펙트럼 -->
+  <div class="canvas-block" style="flex: 1">
+    <div class="canvas-label">
+      SPECTRUM · 주파수 스펙트럼
+      <span class="hint">— x축: 주파수(Hz) | y축: 세기 | 색상: 주파수 영역</span>
+    </div>
+    <canvas id="specCanvas"></canvas>
+  </div>
+</div>
+
+<div class="statusbar">
+  <div class="status-item">
+    <div class="status-dot" id="micDot"></div>
+    <span id="micStatus">마이크 대기 중</span>
+  </div>
+  <div class="status-item">
+    <div class="status-dot active"></div>
+    <span>샘플레이트: <span id="srVal">—</span> Hz</span>
+  </div>
+  <div class="status-item">
+    <div class="status-dot active"></div>
+    <span>FFT: 4096 bins</span>
+  </div>
+  <div class="status-item" style="margin-left:auto">
+    <span style="color:#2a3a58">낮은음 ← 파랑 &nbsp;|&nbsp; 녹색 중음 &nbsp;|&nbsp; 빨강 → 높은음</span>
+  </div>
+</div>
+
+<script>
+// ── 주파수 → 색상 매핑 ─────────────────────────────────────────
+// 80Hz(깊은 저음) ~ 2000Hz(높은 고음) 범위를 blue→cyan→green→yellow→orange→red 로 매핑
+function freqToHSL(hz) {
+  const MIN_HZ = 80;
+  const MAX_HZ = 2000;
+  const t = Math.max(0, Math.min(1, (hz - MIN_HZ) / (MAX_HZ - MIN_HZ)));
+  // hue: 240(파랑) → 0/360(빨강)  역방향
+  const hue = 240 - t * 240;
+  const sat = 85 + t * 10;       // 채도 85~95%
+  const lit = 48 + t * 8;        // 명도 48~56%
+  return { h: hue, s: sat, l: lit };
+}
+
+function hslStr({ h, s, l }, alpha = 1) {
+  return `hsla(${h.toFixed(1)},${s.toFixed(0)}%,${l.toFixed(0)}%,${alpha})`;
+}
+
+// 주파수 → 음이름
+const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+function freqToNote(hz) {
+  if (!hz || hz < 20) return '—';
+  const semitones = 12 * Math.log2(hz / 440);
+  const midi = Math.round(semitones) + 69;
+  if (midi < 0 || midi > 127) return '—';
+  const oct = Math.floor(midi / 12) - 1;
+  return NOTE_NAMES[midi % 12] + oct;
+}
+
+// ── 오디오 설정 ────────────────────────────────────────────────
+let audioCtx, analyser, source;
+let running = false;
+let paused = false;
+let animId;
+
+const FFT_SIZE = 4096;
+const SMOOTH = 0.75;
+
+// ── 캔버스 설정 ────────────────────────────────────────────────
+const waveCanvas = document.getElementById('waveCanvas');
+const specCanvas = document.getElementById('specCanvas');
+const wCtx = waveCanvas.getContext('2d');
+const sCtx = specCanvas.getContext('2d');
+
+// 스크롤 파형용 오프스크린 버퍼
+let waveBuffer = null;
+let waveBufferW = 0;
+let waveBufferH = 0;
+
+function resizeCanvases() {
+  const setSize = (canvas) => {
+    const r = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = r.width * dpr;
+    canvas.height = r.height * dpr;
+    canvas.getContext('2d').scale(dpr, dpr);
+    return { w: r.width, h: r.height };
+  };
+  const wSz = setSize(waveCanvas);
+  setSize(specCanvas);
+
+  // 스크롤 버퍼 재생성
+  waveBuffer = document.createElement('canvas');
+  waveBufferW = wSz.w;
+  waveBufferH = wSz.h;
+  waveBuffer.width = wSz.w;
+  waveBuffer.height = wSz.h;
+  const bCtx = waveBuffer.getContext('2d');
+  bCtx.fillStyle = '#0d1220';
+  bCtx.fillRect(0, 0, wSz.w, wSz.h);
+}
+
+window.addEventListener('resize', resizeCanvases);
+
+// ── 시작 ─────────────────────────────────────────────────────
+
+// 페이지 로드 시 환경 체크
+(function checkEnv() {
+  const proto = location.protocol;
+  const isSecure = proto === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+  const hasApi = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+
+  document.getElementById('currentProto').textContent = proto + '//' + location.host;
+
+  if (!hasApi) {
+    document.getElementById('noApiWarning').style.display = 'block';
+    document.getElementById('startBtn').disabled = true;
+    document.getElementById('startBtn').style.opacity = '0.4';
+    document.getElementById('startBtn').style.cursor = 'not-allowed';
+    return;
+  }
+  if (!isSecure) {
+    document.getElementById('httpsWarning').style.display = 'block';
+    // 그래도 버튼은 누를 수 있게 (일부 구형 브라우저 예외 대응)
+  }
+})();
+
+document.getElementById('startBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('startBtn');
+  const errBox = document.getElementById('startError');
+  btn.textContent = '⏳ 연결 중...';
+  btn.disabled = true;
+  errBox.style.display = 'none';
+
+  try {
+    // getUserMedia 존재 여부 재확인
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      throw new Error('이 브라우저는 마이크 API를 지원하지 않습니다.\nChrome 또는 Safari 최신 버전을 사용해주세요.');
+    }
+
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: false
+      },
+      video: false
+    });
+
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    // iOS Safari: resume 필요
+    if (audioCtx.state === 'suspended') await audioCtx.resume();
+
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = FFT_SIZE;
+    analyser.smoothingTimeConstant = SMOOTH;
+    source = audioCtx.createMediaStreamSource(stream);
+    source.connect(analyser);
+
+    document.getElementById('startOverlay').style.display = 'none';
+    document.getElementById('micDot').classList.add('active');
+    document.getElementById('micStatus').textContent = '마이크 활성';
+    document.getElementById('srVal').textContent = audioCtx.sampleRate.toLocaleString();
+
+    resizeCanvases();
+    running = true;
+    loop();
+
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = '🎤 마이크 시작';
+    document.getElementById('micDot').classList.add('error');
+    document.getElementById('micStatus').textContent = '마이크 접근 실패';
+
+    // 에러 종류별 한국어 안내
+    let msg = '';
+    if (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError') {
+      msg = '🚫 마이크 권한이 거부되었습니다.\n\n' +
+            '브라우저 주소창 왼쪽의 🔒 아이콘을 탭하여\n마이크 권한을 "허용"으로 변경해주세요.\n\n' +
+            '또는 스마트폰 설정 → Safari/Chrome → 마이크 권한 확인';
+    } else if (e.name === 'NotFoundError' || e.name === 'DevicesNotFoundError') {
+      msg = '🎤 마이크를 찾을 수 없습니다.\n기기에 마이크가 연결되어 있는지 확인해주세요.';
+    } else if (e.name === 'NotSupportedError' || e.name === 'SecurityError') {
+      msg = '🔒 보안 오류: HTTPS 주소에서만 마이크를 사용할 수 있습니다.\n\n' +
+            'GitHub Pages 또는 HTTPS 서버에 파일을 올려서 접속해주세요.';
+    } else if (e.name === 'NotReadableError' || e.name === 'TrackStartError') {
+      msg = '⚠️ 다른 앱이 마이크를 사용 중입니다.\n다른 앱을 닫고 다시 시도해주세요.';
+    } else {
+      msg = '오류: ' + e.name + '\n' + e.message;
+    }
+
+    errBox.style.display = 'block';
+    errBox.style.whiteSpace = 'pre-line';
+    errBox.textContent = msg;
+  }
+});
+
+// 일시정지
+document.getElementById('pauseBtn').addEventListener('click', () => {
+  paused = !paused;
+  const btn = document.getElementById('pauseBtn');
+  btn.textContent = paused ? '재개' : '일시정지';
+  btn.className = paused ? 'btn recording' : 'btn primary';
+  if (!paused && running) loop();
+});
+
+// 지우기
+document.getElementById('clearBtn').addEventListener('click', () => {
+  if (!waveBuffer) return;
+  const bCtx = waveBuffer.getContext('2d');
+  bCtx.fillStyle = '#0d1220';
+  bCtx.fillRect(0, 0, waveBufferW, waveBufferH);
+});
+
+// ── 메인 루프 ─────────────────────────────────────────────────
+let prevX = null;
+let prevY = null;
+
+function loop() {
+  if (!running || paused) return;
+  animId = requestAnimationFrame(loop);
+
+  const bufLen = analyser.frequencyBinCount;   // FFT_SIZE / 2
+  const timeData = new Uint8Array(bufLen);
+  const freqData = new Uint8Array(bufLen);
+  analyser.getByteTimeDomainData(timeData);
+  analyser.getByteFrequencyData(freqData);
+
+  const sampleRate = audioCtx.sampleRate;
+
+  // ── 지배 주파수 찾기 ───────────────────────────────────────
+  let maxAmp = 0, maxBin = 1;
+  // 80Hz ~ 2000Hz 범위의 bin만 검색
+  const minBin = Math.floor(80 * bufLen / (sampleRate / 2));
+  const maxBin2 = Math.ceil(2000 * bufLen / (sampleRate / 2));
+  for (let i = minBin; i < maxBin2 && i < bufLen; i++) {
+    if (freqData[i] > maxAmp) { maxAmp = freqData[i]; maxBin = i; }
+  }
+  const dominantHz = maxBin * sampleRate / 2 / bufLen;
+  const color = freqToHSL(dominantHz);
+
+  // 볼륨(RMS) 계산
+  let rms = 0;
+  for (let i = 0; i < bufLen; i++) {
+    const v = (timeData[i] / 128) - 1;
+    rms += v * v;
+  }
+  rms = Math.sqrt(rms / bufLen);
+  const db = rms > 0.0001 ? (20 * Math.log10(rms)).toFixed(1) : '—';
+
+  // ── UI 업데이트 ───────────────────────────────────────────
+  if (maxAmp > 20) {
+    document.getElementById('freqVal').textContent = Math.round(dominantHz);
+    document.getElementById('freqVal').style.color = hslStr(color);
+    document.getElementById('noteVal').textContent = freqToNote(dominantHz);
+    document.getElementById('noteVal').style.color = hslStr(color);
+  } else {
+    document.getElementById('freqVal').textContent = '—';
+    document.getElementById('noteVal').textContent = '—';
+    document.getElementById('freqVal').style.color = '#fff';
+    document.getElementById('noteVal').style.color = '#fff';
+  }
+  document.getElementById('dbVal').textContent = db;
+
+  // 범례 포인터 위치
+  const ptr = document.getElementById('freqPointer');
+  if (maxAmp > 20) {
+    ptr.style.background = hslStr(color);
+    ptr.style.boxShadow = `0 0 8px ${hslStr(color, 0.7)}`;
+  } else {
+    ptr.style.background = 'transparent';
+    ptr.style.boxShadow = 'none';
+  }
+
+  // ── 스크롤 파형 그리기 ────────────────────────────────────
+  drawScrollWave(timeData, freqData, sampleRate, color, rms);
+
+  // ── 스펙트럼 그리기 ───────────────────────────────────────
+  drawSpectrum(freqData, sampleRate);
+}
+
+// ── 스크롤 파형 ─────────────────────────────────────────────
+const WAVE_SCROLL_PX = 2;    // 한 프레임에 몇 픽셀 이동
+
+function drawScrollWave(timeData, freqData, sampleRate, dominantColor, rms) {
+  if (!waveBuffer) return;
+  const W = waveBufferW;
+  const H = waveBufferH;
+  const bCtx = waveBuffer.getContext('2d');
+
+  // 버퍼 전체를 왼쪽으로 SCROLL_PX 이동
+  const imgData = bCtx.getImageData(WAVE_SCROLL_PX, 0, W - WAVE_SCROLL_PX, H);
+  bCtx.putImageData(imgData, 0, 0);
+
+  // 오른쪽 새 열 지우기 (fade)
+  bCtx.fillStyle = '#0d1220';
+  bCtx.fillRect(W - WAVE_SCROLL_PX - 1, 0, WAVE_SCROLL_PX + 2, H);
+
+  // 센터 라인 (미약한 가이드)
+  bCtx.strokeStyle = '#1a2340';
+  bCtx.lineWidth = 1;
+  bCtx.beginPath();
+  bCtx.moveTo(W - WAVE_SCROLL_PX, H / 2);
+  bCtx.lineTo(W, H / 2);
+  bCtx.stroke();
+
+  // 새 파형 세그먼트 그리기
+  // 오른쪽 SCROLL_PX 너비 안에 현재 프레임의 파형 샘플을 매핑
+  const bufLen = timeData.length;
+
+  // 파형 그리기: 각 픽셀 x에 해당하는 샘플 평균
+  const samplesPerPx = bufLen / WAVE_SCROLL_PX;
+
+  bCtx.lineWidth = 1.5;
+  bCtx.lineJoin = 'round';
+  bCtx.lineCap = 'round';
+
+  // 주파수별로 세그먼트를 분할해서 그리면 이상하므로
+  // 각 샘플의 국소 주파수를 ZCR(zero-crossing rate)로 근사해서 색 결정
+  // → 여기선 지배 주파수 색을 사용하되, 진폭에 따라 밝기를 조절
+
+  for (let px = 0; px < WAVE_SCROLL_PX; px++) {
+    const xDraw = W - WAVE_SCROLL_PX + px;
+
+    // 이 픽셀에 해당하는 샘플 구간
+    const sStart = Math.floor(px * samplesPerPx);
+    const sEnd   = Math.floor((px + 1) * samplesPerPx);
+
+    // 구간 내 평균값으로 y 결정
+    let sum = 0;
+    for (let s = sStart; s < sEnd && s < bufLen; s++) {
+      sum += (timeData[s] / 128) - 1;
+    }
+    const val = sum / Math.max(1, sEnd - sStart);
+    const y = H / 2 - val * (H * 0.42);
+
+    // 국소 진폭으로 투명도 조절 (소리 없으면 희미하게)
+    const localAmp = Math.abs(val);
+    const alpha = Math.min(1, 0.2 + localAmp * 3);
+
+    // 진폭이 크면 더 밝게
+    const lBoost = Math.min(20, localAmp * 60);
+    const col = { h: dominantColor.h, s: dominantColor.s, l: dominantColor.l + lBoost };
+
+    if (px === 0 && prevX !== null) {
+      bCtx.beginPath();
+      bCtx.strokeStyle = hslStr(col, alpha);
+      bCtx.moveTo(prevX, prevY);
+      bCtx.lineTo(xDraw, y);
+      bCtx.stroke();
+    } else if (px > 0) {
+      // 이전 픽셀과 연결은 루프 안에서 처리
+    }
+    prevX = xDraw;
+    prevY = y;
+  }
+
+  // 글로우 효과 (진폭 클 때)
+  if (rms > 0.05) {
+    bCtx.globalAlpha = Math.min(0.15, rms * 0.4);
+    bCtx.fillStyle = hslStr({ ...dominantColor, l: 60 });
+    const glowY = prevY;
+    const glowH = Math.abs((timeData[Math.floor(bufLen/2)] / 128 - 1) * H * 0.42) * 2;
+    bCtx.fillRect(W - WAVE_SCROLL_PX - 1, glowY - 3, WAVE_SCROLL_PX + 2, 6);
+    bCtx.globalAlpha = 1;
+  }
+
+  // 버퍼를 실제 캔버스에 복사
+  const cW = waveCanvas.getBoundingClientRect().width;
+  const cH = waveCanvas.getBoundingClientRect().height;
+  wCtx.clearRect(0, 0, cW, cH);
+  wCtx.drawImage(waveBuffer, 0, 0, cW, cH);
+
+  // 현재 재생 위치 커서 (오른쪽 끝에 수직선)
+  wCtx.strokeStyle = hslStr(dominantColor, 0.6);
+  wCtx.lineWidth = 1;
+  wCtx.setLineDash([4, 4]);
+  wCtx.beginPath();
+  wCtx.moveTo(cW - WAVE_SCROLL_PX - 1, 0);
+  wCtx.lineTo(cW - WAVE_SCROLL_PX - 1, cH);
+  wCtx.stroke();
+  wCtx.setLineDash([]);
+}
+
+// ── 스펙트럼 ─────────────────────────────────────────────────
+function drawSpectrum(freqData, sampleRate) {
+  const cW = specCanvas.getBoundingClientRect().width;
+  const cH = specCanvas.getBoundingClientRect().height;
+
+  sCtx.clearRect(0, 0, cW, cH);
+  sCtx.fillStyle = '#0d1220';
+  sCtx.fillRect(0, 0, cW, cH);
+
+  const bufLen = freqData.length;
+  // 표시 범위: 40Hz ~ 4000Hz (log scale이 더 직관적)
+  const MIN_HZ_DISP = 40;
+  const MAX_HZ_DISP = 4000;
+  const nyquist = sampleRate / 2;
+
+  const NUM_BARS = Math.min(300, cW);
+  const barW = cW / NUM_BARS;
+
+  for (let i = 0; i < NUM_BARS; i++) {
+    // log scale x 매핑
+    const t = i / NUM_BARS;
+    const hz = MIN_HZ_DISP * Math.pow(MAX_HZ_DISP / MIN_HZ_DISP, t);
+    const bin = Math.round(hz * bufLen / nyquist);
+    if (bin >= bufLen) continue;
+
+    // 주변 bin 평균으로 스무딩
+    let val = 0;
+    const span = Math.max(1, Math.round(bin * 0.05));
+    let cnt = 0;
+    for (let b = Math.max(0, bin - span); b <= Math.min(bufLen - 1, bin + span); b++) {
+      val += freqData[b]; cnt++;
+    }
+    val /= cnt;
+
+    const barH = (val / 255) * cH * 0.92;
+    if (barH < 1) continue;
+
+    const color = freqToHSL(hz);
+    const alpha = 0.5 + (val / 255) * 0.5;
+
+    // 바 그리기
+    sCtx.fillStyle = hslStr(color, alpha);
+    sCtx.fillRect(i * barW, cH - barH, barW - 0.5, barH);
+
+    // 상단 글로우
+    sCtx.fillStyle = hslStr({ ...color, l: color.l + 25 }, alpha * 0.6);
+    sCtx.fillRect(i * barW, cH - barH, barW - 0.5, 2);
+  }
+
+  // Hz 눈금 (log scale)
+  const ticks = [100, 200, 300, 500, 800, 1000, 2000, 3000];
+  sCtx.fillStyle = '#2a3a58';
+  sCtx.font = `9px JetBrains Mono, monospace`;
+  sCtx.textAlign = 'center';
+
+  ticks.forEach(hz => {
+    if (hz < MIN_HZ_DISP || hz > MAX_HZ_DISP) return;
+    const t = Math.log(hz / MIN_HZ_DISP) / Math.log(MAX_HZ_DISP / MIN_HZ_DISP);
+    const x = t * cW;
+
+    sCtx.strokeStyle = '#1a2340';
+    sCtx.lineWidth = 1;
+    sCtx.beginPath();
+    sCtx.moveTo(x, 0);
+    sCtx.lineTo(x, cH);
+    sCtx.stroke();
+
+    sCtx.fillStyle = '#3a4a68';
+    sCtx.fillText(hz >= 1000 ? (hz/1000)+'k' : hz, x, cH - 3);
+  });
+}
+</script>
+</body>
+</html>
