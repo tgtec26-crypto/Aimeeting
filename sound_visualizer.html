@@ -701,19 +701,17 @@ function drawScrollWave(timeData, freqData, sampleRate, dominantColor, rms) {
       sum += (timeData[s] / 128) - 1;
     }
     const val = sum / Math.max(1, sEnd - sStart);
-    const y = H / 2 - val * (H * 1.82);
+    const y = H / 2 - val * (H * 0.82);
 
-    // 국소 진폭으로 투명도 조절 (소리 없으면 희미하게)
+    // 진폭으로 선 두께 조절 (소리 없으면 얇게, 클수록 두껍게)
     const localAmp = Math.abs(val);
-    const alpha = Math.min(1, 0.2 + localAmp * 3);
-
-    // 진폭이 크면 더 밝게
-    const lBoost = Math.min(20, localAmp * 60);
-    const col = { h: dominantColor.h, s: dominantColor.s, l: dominantColor.l + lBoost };
+    const lineW = 0.5 + localAmp * 8;
+    const col = { h: dominantColor.h, s: dominantColor.s, l: dominantColor.l };
 
     if (px === 0 && prevX !== null) {
       bCtx.beginPath();
-      bCtx.strokeStyle = hslStr(col, alpha);
+      bCtx.lineWidth = lineW;
+      bCtx.strokeStyle = hslStr(col, 0.9);
       bCtx.moveTo(prevX, prevY);
       bCtx.lineTo(xDraw, y);
       bCtx.stroke();
