@@ -705,7 +705,7 @@ function drawScrollWave(timeData, freqData, sampleRate, dominantColor, rms) {
     const p1 = allPoints[i];
     const amp = (p0.amp + p1.amp) / 2;
     bCtx.beginPath();
-    bCtx.lineWidth = 0.5 + amp * 140;   // 진폭 → 굵기 (최소 0.5px, 최대 ~14.5px)
+    bCtx.lineWidth = 0.5 + amp * 400;   // 진폭 → 굵기 (최소 0.5px, 최대 ~14.5px)
     bCtx.strokeStyle = hslStr(dominantColor, 0.9);
     bCtx.moveTo(p0.x, p0.y);
     bCtx.lineTo(p1.x, p1.y);
