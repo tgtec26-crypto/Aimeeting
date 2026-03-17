@@ -20,7 +20,7 @@
     background: var(--bg);
     color: var(--text);
     font-family: 'Noto Sans KR', sans-serif;
-    min-height: 100vh;
+    height: 100vh;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -363,7 +363,7 @@
   <div class="canvas-block" style="flex: 2">
     <div class="canvas-label">
       WAVEFORM · 스크롤 파형
-      <span class="hint">— 파형 색상 = 현재 지배 주파수 | 밝기 = 진폭</span>
+      <span class="hint">— 파형 색상 = 현재 지배 주파수 | 굵기 = 진폭</span>
     </div>
     <canvas id="waveCanvas"></canvas>
   </div>
@@ -584,6 +584,7 @@ document.getElementById('clearBtn').addEventListener('click', () => {
 // ── 메인 루프 ─────────────────────────────────────────────────
 let prevX = null;
 let prevY = null;
+let prevAmp = 0;
 
 function loop() {
   if (!running || paused) return;
@@ -661,75 +662,60 @@ function drawScrollWave(timeData, freqData, sampleRate, dominantColor, rms) {
   const imgData = bCtx.getImageData(WAVE_SCROLL_PX, 0, W - WAVE_SCROLL_PX, H);
   bCtx.putImageData(imgData, 0, 0);
 
-  // 오른쪽 새 열 지우기 (fade)
+  // 오른쪽 새 열 지우기
   bCtx.fillStyle = '#0d1220';
   bCtx.fillRect(W - WAVE_SCROLL_PX - 1, 0, WAVE_SCROLL_PX + 2, H);
 
   // 센터 라인 (미약한 가이드)
   bCtx.strokeStyle = '#1a2340';
   bCtx.lineWidth = 1;
+  bCtx.setLineDash([]);
   bCtx.beginPath();
   bCtx.moveTo(W - WAVE_SCROLL_PX, H / 2);
   bCtx.lineTo(W, H / 2);
   bCtx.stroke();
 
-  // 새 파형 세그먼트 그리기
-  // 오른쪽 SCROLL_PX 너비 안에 현재 프레임의 파형 샘플을 매핑
   const bufLen = timeData.length;
-
-  // 파형 그리기: 각 픽셀 x에 해당하는 샘플 평균
   const samplesPerPx = bufLen / WAVE_SCROLL_PX;
 
-  bCtx.lineWidth = 1.5;
-  bCtx.lineJoin = 'round';
-  bCtx.lineCap = 'round';
-
-  // 주파수별로 세그먼트를 분할해서 그리면 이상하므로
-  // 각 샘플의 국소 주파수를 ZCR(zero-crossing rate)로 근사해서 색 결정
-  // → 여기선 지배 주파수 색을 사용하되, 진폭에 따라 밝기를 조절
-
+  // 각 픽셀의 파형 좌표와 진폭 계산
+  const points = [];
   for (let px = 0; px < WAVE_SCROLL_PX; px++) {
     const xDraw = W - WAVE_SCROLL_PX + px;
-
-    // 이 픽셀에 해당하는 샘플 구간
     const sStart = Math.floor(px * samplesPerPx);
     const sEnd   = Math.floor((px + 1) * samplesPerPx);
-
-    // 구간 내 평균값으로 y 결정
     let sum = 0;
     for (let s = sStart; s < sEnd && s < bufLen; s++) {
       sum += (timeData[s] / 128) - 1;
     }
     const val = sum / Math.max(1, sEnd - sStart);
     const y = H / 2 - val * (H * 0.82);
-
-    // 진폭으로 선 두께 조절 (소리 없으면 얇게, 클수록 두껍게)
-    const localAmp = Math.abs(val);
-    const lineW = 0.5 + localAmp * 8;
-    const col = { h: dominantColor.h, s: dominantColor.s, l: dominantColor.l };
-
-    if (px === 0 && prevX !== null) {
-      bCtx.beginPath();
-      bCtx.lineWidth = lineW;
-      bCtx.strokeStyle = hslStr(col, 0.9);
-      bCtx.moveTo(prevX, prevY);
-      bCtx.lineTo(xDraw, y);
-      bCtx.stroke();
-    } else if (px > 0) {
-      // 이전 픽셀과 연결은 루프 안에서 처리
-    }
-    prevX = xDraw;
-    prevY = y;
+    points.push({ x: xDraw, y, amp: Math.abs(val) });
   }
 
-  // 글로우 효과 (진폭 클 때)
-  if (rms > 0.05) {
-    bCtx.globalAlpha = Math.min(0.15, rms * 0.4);
-    bCtx.fillStyle = hslStr({ ...dominantColor, l: 60 });
-    const glowY = prevY;
-    const glowH = Math.abs((timeData[Math.floor(bufLen/2)] / 128 - 1) * H * 0.42) * 2;
-    bCtx.fillRect(W - WAVE_SCROLL_PX - 1, glowY - 3, WAVE_SCROLL_PX + 2, 6);
-    bCtx.globalAlpha = 1;
+  // 이전 프레임 끝점 ~ 현재 프레임 전체를 진폭 기반 굵기로 연결
+  const allPoints = (prevX !== null)
+    ? [{ x: prevX, y: prevY, amp: prevAmp }, ...points]
+    : points;
+
+  bCtx.lineCap = 'round';
+  bCtx.lineJoin = 'round';
+  for (let i = 1; i < allPoints.length; i++) {
+    const p0 = allPoints[i - 1];
+    const p1 = allPoints[i];
+    const amp = (p0.amp + p1.amp) / 2;
+    bCtx.beginPath();
+    bCtx.lineWidth = 0.5 + amp * 14;   // 진폭 → 굵기 (최소 0.5px, 최대 ~14.5px)
+    bCtx.strokeStyle = hslStr(dominantColor, 0.9);
+    bCtx.moveTo(p0.x, p0.y);
+    bCtx.lineTo(p1.x, p1.y);
+    bCtx.stroke();
+  }
+
+  if (points.length > 0) {
+    prevX = points[points.length - 1].x;
+    prevY = points[points.length - 1].y;
+    prevAmp = points[points.length - 1].amp;
   }
 
   // 버퍼를 실제 캔버스에 복사
