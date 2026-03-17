@@ -701,7 +701,7 @@ function drawScrollWave(timeData, freqData, sampleRate, dominantColor, rms) {
       sum += (timeData[s] / 128) - 1;
     }
     const val = sum / Math.max(1, sEnd - sStart);
-    const y = H / 2 - val * (H * 0.82);
+    const y = H / 2 - val * (H * 1.82);
 
     // 국소 진폭으로 투명도 조절 (소리 없으면 희미하게)
     const localAmp = Math.abs(val);
